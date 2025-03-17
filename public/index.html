@@ -10,7 +10,7 @@
     <div id="app">
         <h1>シリーダンス</h1>
         <div id="session-info">
-            <p>セッションID: <span id="session-id">接続中...</span></p>
+            <p>セッションID: <span id="session-id">接続中...</span> <button id="copy-session-btn" title="URLをコピー">共有</button></p>
             <p>参加者数: <span id="user-count">0</span>人</p>
         </div>
         <div id="controls">
@@ -48,5 +48,22 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"></script>
     <script type="module" src="/js/main.js"></script>
+    <script>
+        // URLコピー機能
+        document.addEventListener('DOMContentLoaded', () => {
+            const copyBtn = document.getElementById('copy-session-btn');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(window.location.href)
+                        .then(() => {
+                            alert('セッションURLをコピーしました！友達に共有してください。');
+                        })
+                        .catch(err => {
+                            console.error('URLのコピーに失敗しました:', err);
+                        });
+                });
+            }
+        });
+    </script>
 </body>
 </html> 

@@ -70,7 +70,19 @@ class App {
       },
       
       joinSession(sessionId = null) {
-        this.sessionId = sessionId || 'session_' + Math.random().toString(36).substr(2, 6);
+        // URLパラメータからセッションIDを取得
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSessionId = urlParams.get('session');
+        
+        // 優先順位: 引数 > URLパラメータ > 新規生成
+        this.sessionId = sessionId || urlSessionId || 'session_' + Math.random().toString(36).substr(2, 6);
+        
+        // URLにセッションIDを反映（履歴に追加せず）
+        if (!urlSessionId) {
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set('session', this.sessionId);
+          window.history.replaceState({}, '', newUrl);
+        }
         
         this.socket.emit('join-session', {
           sessionId: this.sessionId,
