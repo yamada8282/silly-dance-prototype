@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シリーダンス</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <h1>シリーダンス</h1>
+        <div id="session-info">
+            <p>セッションID: <span id="session-id">接続中...</span></p>
+            <p>参加者数: <span id="user-count">0</span>人</p>
+        </div>
+        <div id="controls">
+            <button id="start-btn">開始</button>
+            <button id="stop-btn" disabled>停止</button>
+        </div>
+        <div id="dance-area">
+            <!-- ダンスエリアはここに表示されます -->
+        </div>
+        <div id="energy-meter">
+            <div class="meter-label">エネルギー</div>
+            <div class="meter-bar">
+                <div class="meter-fill" id="energy-fill"></div>
+            </div>
+        </div>
+        <div id="music-player">
+            <div class="player-title">音楽プレーヤー</div>
+            <div class="player-controls">
+                <button id="play-btn">再生</button>
+                <button id="pause-btn" disabled>一時停止</button>
+            </div>
+            <div class="player-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="music-progress"></div>
+                </div>
+                <div class="time-display">
+                    <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
+                </div>
+            </div>
+            <audio id="audio-element" src="/assets/music/dance_music.mp3"></audio>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"></script>
+    <script type="module" src="/js/main.js"></script>
+</body>
+</html> 
