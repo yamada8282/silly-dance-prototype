@@ -10,6 +10,46 @@
 // importパスを修正
 const socket = io();
 
+// デバッグモード
+const DEBUG = true;
+
+// デバッグログ関数
+function debugLog(...args) {
+  if (DEBUG) {
+    console.log('[DEBUG]', ...args);
+    
+    // デバッグパネルにも表示
+    const debugLogElement = document.getElementById('debug-log');
+    if (debugLogElement) {
+      const message = args.map(arg => {
+        if (typeof arg === 'object') {
+          return JSON.stringify(arg);
+        }
+        return arg;
+      }).join(' ');
+      const logEntry = document.createElement('div');
+      logEntry.textContent = `${new Date().toLocaleTimeString()}: [DEBUG] ${message}`;
+      debugLogElement.appendChild(logEntry);
+      debugLogElement.scrollTop = debugLogElement.scrollHeight;
+    }
+  }
+}
+
+// Socket.IOの接続状態をチェック
+socket.on('connect', () => {
+  debugLog('Socket.IOサーバーに接続しました');
+});
+
+socket.on('connect_error', (error) => {
+  console.error('Socket.IO接続エラー:', error);
+  debugLog('Socket.IO接続エラー:', error.message);
+});
+
+socket.on('disconnect', (reason) => {
+  console.warn('Socket.IOが切断されました:', reason);
+  debugLog('Socket.IOが切断されました:', reason);
+});
+
 class App {
   constructor() {
     this.camera = null;
@@ -28,16 +68,17 @@ class App {
       initialize() {
         // 接続イベントのハンドリング
         this.socket.on('connect', () => {
-          console.log('サーバーに接続しました');
+          debugLog('サーバーに接続しました');
         });
         
         // 切断イベントのハンドリング
         this.socket.on('disconnect', () => {
-          console.log('サーバーから切断されました');
+          debugLog('サーバーから切断されました');
         });
         
         // ポーズデータ受信のハンドリング
         this.socket.on('receive-pose', (data) => {
+          debugLog('ポーズデータを受信:', data.userId);
           if (this.handlers.onPoseReceived && data.userId !== this.userId) {
             this.handlers.onPoseReceived(data.userId, data.poseData);
           }
@@ -45,6 +86,7 @@ class App {
         
         // ユーザー参加イベントのハンドリング
         this.socket.on('user-joined', (data) => {
+          debugLog('ユーザーが参加:', data.userId, data.userCount);
           if (this.handlers.onUserJoined && data.userId !== this.userId) {
             this.handlers.onUserJoined(data.userId, data.userCount);
           }
@@ -52,6 +94,7 @@ class App {
         
         // ユーザー退出イベントのハンドリング
         this.socket.on('user-left', (data) => {
+          debugLog('ユーザーが退出:', data.userId, data.userCount);
           if (this.handlers.onUserLeft) {
             this.handlers.onUserLeft(data.userId, data.userCount);
           }
@@ -59,6 +102,7 @@ class App {
         
         // 音楽イベントのハンドリング
         this.socket.on('music-event', (data) => {
+          debugLog('音楽イベント受信:', data.action, data.position);
           if (this.handlers.onMusicEvent) {
             this.handlers.onMusicEvent(data);
           }
@@ -124,6 +168,8 @@ class App {
 
   async initialize() {
     try {
+      debugLog('アプリケーションの初期化を開始');
+      
       // DOMエレメントの取得
       const videoElement = document.createElement('video');
       videoElement.style.display = 'none';
@@ -148,7 +194,14 @@ class App {
       const currentTimeElement = document.getElementById('current-time');
       const totalTimeElement = document.getElementById('total-time');
 
+      // 音楽ファイルの存在確認
+      audioElement.addEventListener('error', (e) => {
+        console.error('音楽ファイルの読み込みに失敗しました:', e);
+        alert('音楽ファイルの読み込みに失敗しました。管理者に連絡してください。');
+      });
+
       // コンポーネントの初期化
+      debugLog('コンポーネントの初期化');
       this.camera = this.createCamera(videoElement);
       this.canvas = this.createCanvas(canvasElement);
       this.controls = this.createControls({
@@ -168,6 +221,7 @@ class App {
       });
       
       // Socket.IOの初期化
+      debugLog('Socket.IOの初期化');
       this.socketService.initialize();
       this.socketService.setHandlers({
         onPoseReceived: this.handlePoseReceived.bind(this),
@@ -177,17 +231,26 @@ class App {
       });
 
       // カメラの初期化
-      const cameraInitialized = await this.initializeCamera();
-      if (!cameraInitialized) {
-        throw new Error('カメラの初期化に失敗しました');
+      debugLog('カメラの初期化を開始');
+      try {
+        const cameraInitialized = await this.initializeCamera();
+        if (!cameraInitialized) {
+          throw new Error('カメラの初期化に失敗しました');
+        }
+        debugLog('カメラの初期化が完了');
+      } catch (cameraError) {
+        console.error('カメラエラー:', cameraError);
+        alert('カメラへのアクセスが許可されていないか、利用できません。カメラを許可してページを更新してください。');
+        // カメラエラーでも続行
       }
 
       // セッションへの参加
       const sessionId = this.socketService.joinSession();
-      console.log(`セッションに参加しました: ${sessionId}`);
+      debugLog(`セッションに参加しました: ${sessionId}`);
       this.controls.updateSessionId(sessionId);
 
       this.initialized = true;
+      debugLog('アプリケーションの初期化が完了');
 
     } catch (error) {
       console.error('アプリケーションの初期化に失敗しました:', error);
@@ -208,38 +271,84 @@ class App {
       updateInterval: null,
       
       initialize() {
+        debugLog('音楽プレーヤーの初期化を開始');
+        
         // 音楽の読み込み完了時のイベント
         this.audio.addEventListener('loadedmetadata', () => {
+          debugLog('音楽メタデータの読み込みが完了しました');
           this.updateTotalTime();
         });
         
         // 再生終了時のイベント
         this.audio.addEventListener('ended', () => {
+          debugLog('音楽の再生が終了しました');
           this.stop();
+        });
+        
+        // エラー発生時のイベント
+        this.audio.addEventListener('error', (e) => {
+          const errorMessage = this.getAudioErrorMessage(e);
+          console.error('音楽の読み込みエラー:', errorMessage);
+          debugLog('音楽の読み込みエラー:', errorMessage);
+          
+          // フォールバックソースがある場合は自動的に次のソースを試す
+          // エラーハンドリングはブラウザが自動的に行う
         });
         
         // 再生ボタンのイベント
         this.playButton.addEventListener('click', () => {
+          debugLog('再生ボタンがクリックされました');
           this.play();
         });
         
         // 一時停止ボタンのイベント
         this.pauseButton.addEventListener('click', () => {
+          debugLog('一時停止ボタンがクリックされました');
           this.pause();
         });
+        
+        debugLog('音楽プレーヤーの初期化が完了しました');
+      },
+      
+      // オーディオエラーメッセージの取得
+      getAudioErrorMessage(e) {
+        if (!e || !this.audio.error) {
+          return '不明なエラー';
+        }
+        
+        const error = this.audio.error;
+        switch (error.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            return 'ユーザーによって再生が中止されました';
+          case MediaError.MEDIA_ERR_NETWORK:
+            return 'ネットワークエラーが発生しました';
+          case MediaError.MEDIA_ERR_DECODE:
+            return '音声ファイルの復号化に失敗しました';
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            return '音声形式がサポートされていないか、ファイルが見つかりません';
+          default:
+            return `不明なエラー (コード: ${error.code})`;
+        }
       },
       
       // 再生
       play() {
         if (this.isPlaying) return;
         
-        this.audio.play();
-        this.isPlaying = true;
-        this.updateButtonState();
-        this.startProgressUpdate();
-        
-        // 他のユーザーに通知
-        app.socketService.sendMusicControl('play', this.audio.currentTime);
+        debugLog('音楽の再生を開始します');
+        this.audio.play().then(() => {
+          debugLog('音楽の再生が開始されました');
+          this.isPlaying = true;
+          this.updateButtonState();
+          this.startProgressUpdate();
+          
+          // 他のユーザーに通知
+          app.socketService.sendMusicControl('play', this.audio.currentTime);
+        }).catch(error => {
+          console.error('音楽の再生に失敗しました:', error);
+          debugLog('音楽の再生に失敗しました:', error.message);
+          alert('音楽の再生に失敗しました。ブラウザの自動再生ポリシーにより、ユーザーの操作が必要な場合があります。');
+        });
       },
       
       // 一時停止
@@ -368,31 +477,88 @@ class App {
       
       async initialize() {
         try {
-          // カメラストリームの取得
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: 640,
-              height: 480
-            }
-          });
+          debugLog('カメラストリームの取得を試みます');
           
+          // カメラの権限を確認
+          if (navigator.permissions) {
+            try {
+              const result = await navigator.permissions.query({ name: 'camera' });
+              debugLog('カメラ権限状態:', result.state);
+              
+              if (result.state === 'denied') {
+                throw new Error('カメラへのアクセスが拒否されています');
+              }
+            } catch (permError) {
+              debugLog('権限確認エラー:', permError);
+              // 権限APIがサポートされていない場合は続行
+            }
+          }
+          
+          // カメラストリームの取得
+          const constraints = {
+            video: {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              facingMode: 'user'
+            }
+          };
+          
+          debugLog('カメラ制約:', constraints);
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          
+          debugLog('カメラストリームの取得に成功');
           // videoエレメントにストリームを設定
           this.video.srcObject = stream;
-          this.video.play();
+          this.video.onloadedmetadata = () => {
+            debugLog('ビデオメタデータ読み込み完了');
+            this.video.play().catch(e => {
+              console.error('ビデオ再生エラー:', e);
+            });
+          };
           
-          // PoseNetの初期化
-          this.poseNet = await posenet.load({
-            architecture: 'MobileNetV1',
-            outputStride: 16,
-            inputResolution: { width: 640, height: 480 },
-            multiplier: 0.75,
-            quantBytes: 2
-          });
+          // ビデオ要素のエラーハンドリング
+          this.video.onerror = (e) => {
+            console.error('ビデオ要素エラー:', e);
+          };
           
-          console.log('カメラとPoseNetの初期化が完了しました');
+          // PoseNetの読み込みを待機
+          debugLog('PoseNetの初期化を開始');
+          try {
+            this.poseNet = await posenet.load({
+              architecture: 'MobileNetV1',
+              outputStride: 16,
+              inputResolution: { width: 640, height: 480 },
+              multiplier: 0.75,
+              quantBytes: 2
+            });
+            debugLog('PoseNetの初期化が完了');
+          } catch (poseNetError) {
+            console.error('PoseNetの初期化に失敗:', poseNetError);
+            alert('姿勢検出モデルの読み込みに失敗しました。ネットワーク接続を確認してください。');
+            return false;
+          }
+          
+          debugLog('カメラとPoseNetの初期化が完了しました');
           return true;
         } catch (error) {
           console.error('カメラまたはPoseNetの初期化に失敗しました:', error);
+          
+          // エラーメッセージをユーザーフレンドリーに
+          let errorMessage = 'カメラの初期化に失敗しました。';
+          
+          if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            errorMessage = 'カメラへのアクセスが許可されていません。ブラウザの設定でカメラへのアクセスを許可してください。';
+          } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            errorMessage = 'カメラが見つかりません。カメラが接続されているか確認してください。';
+          } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            errorMessage = 'カメラにアクセスできません。他のアプリケーションがカメラを使用している可能性があります。';
+          } else if (error.name === 'OverconstrainedError') {
+            errorMessage = '指定された要件を満たすカメラが見つかりません。';
+          } else if (error.name === 'TypeError') {
+            errorMessage = 'カメラの設定が無効です。';
+          }
+          
+          alert(errorMessage);
           return false;
         }
       },
@@ -400,11 +566,13 @@ class App {
       async start() {
         if (!this.poseNet || !this.video || this.isRunning) return;
         
+        debugLog('ポーズ検出を開始');
         this.isRunning = true;
         this.detectPose();
       },
       
       stop() {
+        debugLog('ポーズ検出を停止');
         this.isRunning = false;
       },
       
@@ -697,18 +865,29 @@ class App {
 
   // カメラの初期化
   async initializeCamera() {
-    return await this.camera.initialize();
+    debugLog('カメラ初期化メソッドが呼び出されました');
+    try {
+      const result = await this.camera.initialize();
+      debugLog('カメラ初期化結果:', result);
+      return result;
+    } catch (error) {
+      console.error('カメラ初期化エラー:', error);
+      debugLog('カメラ初期化エラー:', error.message);
+      return false;
+    }
   }
 
   // 開始ボタンのハンドラ
   handleStart() {
     if (!this.initialized) return;
+    debugLog('開始ボタンがクリックされました');
     this.camera.start();
   }
 
   // 停止ボタンのハンドラ
   handleStop() {
     if (!this.initialized) return;
+    debugLog('停止ボタンがクリックされました');
     this.camera.stop();
     this.energyMeter.reset();
   }
@@ -767,13 +946,58 @@ class App {
 // アプリケーションのインスタンス化と開始
 const app = new App();
 document.addEventListener('DOMContentLoaded', () => {
+  debugLog('DOMContentLoadedイベントが発火しました');
+  
+  // 音楽ファイルの存在確認
+  const audioElement = document.getElementById('audio-element');
+  if (audioElement) {
+    debugLog('音楽要素が見つかりました');
+    
+    // 音楽ファイルのロード状態を確認
+    audioElement.addEventListener('loadeddata', () => {
+      debugLog('音楽ファイルがロードされました');
+    });
+    
+    // 音楽ファイルのエラーを詳細に記録
+    audioElement.addEventListener('error', (e) => {
+      const error = audioElement.error;
+      let errorMessage = '不明なエラー';
+      
+      if (error) {
+        switch (error.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            errorMessage = 'ユーザーによって再生が中止されました';
+            break;
+          case MediaError.MEDIA_ERR_NETWORK:
+            errorMessage = 'ネットワークエラーが発生しました';
+            break;
+          case MediaError.MEDIA_ERR_DECODE:
+            errorMessage = '音声ファイルの復号化に失敗しました';
+            break;
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMessage = '音声形式がサポートされていないか、ファイルが見つかりません';
+            break;
+          default:
+            errorMessage = `不明なエラー (コード: ${error.code})`;
+        }
+      }
+      
+      console.error('音楽ファイルエラー:', errorMessage);
+      debugLog('音楽ファイルエラー:', errorMessage);
+    });
+  } else {
+    debugLog('音楽要素が見つかりません');
+  }
+  
   app.initialize();
   // コントロールのイベントリスナーを初期化
   if (app.controls) {
+    debugLog('コントロールのイベントリスナーを初期化します');
     app.controls.initEventListeners();
   }
   // 音楽プレーヤーのイベントリスナーを初期化
   if (app.musicPlayer) {
+    debugLog('音楽プレーヤーのイベントリスナーを初期化します');
     app.musicPlayer.initialize();
   }
 });

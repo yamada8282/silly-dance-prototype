@@ -40,8 +40,20 @@
                     <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
                 </div>
             </div>
-            <audio id="audio-element" src="/assets/music/dance_music.mp3"></audio>
+            <audio id="audio-element">
+                <source src="/assets/music/Danny Shields - Paving the Way.mp3" type="audio/mpeg">
+                <source src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0c6ff1bab.mp3" type="audio/mpeg">
+                <p>お使いのブラウザは音声要素をサポートしていません。</p>
+            </audio>
         </div>
+    </div>
+
+    <div id="debug-panel" style="display: block; position: fixed; bottom: 0; left: 0; background: rgba(0,0,0,0.8); color: white; padding: 10px; max-height: 200px; overflow-y: auto; width: 100%; z-index: 1000; font-family: monospace; font-size: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0;">デバッグ情報</h3>
+            <button id="toggle-debug" style="background: #555; color: white; border: none; padding: 2px 8px; cursor: pointer;">非表示</button>
+        </div>
+        <div id="debug-log" style="margin-top: 8px;"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -62,6 +74,52 @@
                             console.error('URLのコピーに失敗しました:', err);
                         });
                 });
+            }
+
+            // デバッグパネル表示切替
+            const toggleDebugBtn = document.getElementById('toggle-debug');
+            const debugPanel = document.getElementById('debug-panel');
+            
+            if (toggleDebugBtn && debugPanel) {
+                toggleDebugBtn.addEventListener('click', () => {
+                    if (debugPanel.style.display === 'none') {
+                        debugPanel.style.display = 'block';
+                        toggleDebugBtn.textContent = '非表示';
+                    } else {
+                        debugPanel.style.display = 'none';
+                        toggleDebugBtn.textContent = '表示';
+                    }
+                });
+            }
+
+            // Ctrl+Shift+Dでも切り替え可能
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'D' && e.ctrlKey && e.shiftKey) {
+                    const debugPanel = document.getElementById('debug-panel');
+                    debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+                    if (toggleDebugBtn) {
+                        toggleDebugBtn.textContent = debugPanel.style.display === 'none' ? '表示' : '非表示';
+                    }
+                }
+            });
+
+            // コンソールログのオーバーライド
+            const debugLog = document.getElementById('debug-log');
+            if (debugLog) {
+                const originalConsoleLog = console.log;
+                console.log = function(...args) {
+                    originalConsoleLog.apply(console, args);
+                    const message = args.map(arg => {
+                        if (typeof arg === 'object') {
+                            return JSON.stringify(arg);
+                        }
+                        return arg;
+                    }).join(' ');
+                    const logEntry = document.createElement('div');
+                    logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+                    debugLog.appendChild(logEntry);
+                    debugLog.scrollTop = debugLog.scrollHeight;
+                };
             }
         });
     </script>
